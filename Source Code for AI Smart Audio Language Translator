@@ -1,0 +1,66 @@
+import speech_recognition as sr
+from google.cloud import translate
+from gtts import gTTS
+import os
+
+# Initialize Google Cloud Translation client
+translate_client = translate.TranslationServiceClient()
+
+# Function to detect language
+def detect_language(text):
+    response = translate_client.detect_language(parent="projects/" + PROJECT_ID, content=text)
+    return response.languages[0].language_code
+
+# Function to translate text
+def translate_text(text, target_language):
+    response = translate_client.translate_text(
+        parent="projects/" + PROJECT_ID,
+        contents=[text],
+        target_language_code=target_language,
+    )
+    return response.translations[0].translated_text
+
+# Function to convert text to speech
+def text_to_speech(text, language):
+    tts = gTTS(text=text, lang=language, slow=False)
+    tts.save("output.mp3")
+    os.system("mpg321 output.mp3")  # Requires mpg321 to play audio
+
+# Function to recognize speech
+def recognize_speech():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Speak now...")
+        audio_data = recognizer.listen(source)
+
+    try:
+        text = recognizer.recognize_google(audio_data)
+        print("You said:", text)
+        return text
+    except sr.UnknownValueError:
+        print("Could not understand audio")
+        return None
+    except sr.RequestError as e:
+        print("Error fetching results; {0}".format(e))
+        return None
+
+# Main function
+def main():
+    while True:
+        # Recognize speech
+        text = recognize_speech()
+        if text:
+            # Detect language
+            source_language = detect_language(text)
+            print("Detected language:", source_language)
+
+            # Translate text to target language
+            target_language = "en"  # Change to desired target language code
+            translated_text = translate_text(text, target_language)
+            print("Translated text:", translated_text)
+
+            # Convert translated text to speech
+            text_to_speech(translated_text, target_language)
+
+if __name__ == "__main__":
+    main()
